@@ -1,61 +1,60 @@
-import React, { useReducer, useState, useRef, useCallback } from 'react';
+import React, {
+  useReducer,
+  useState,
+  useRef,
+  useCallback,
+  useEffect,
+} from 'react';
 import TodoTemplate from './components/TodoTemplate';
 import TodoInsert from './components/TodoInsert';
 import TodoList from './components/TodoList';
-
-function createBulkTodos() {
-  const array = [];
-  for (let i = 1; i <= 2500; i++) {
-    array.push({
-      id: i,
-      text: `할 일 ${i}`,
-      checked: false,
-    });
-  }
-  return array;
-}
-
-function todoReducer(todos, action) {
-  switch (action.type) {
-    case 'INSERT':
-      return todos.concat(action.todo);
-    case 'REMOVE':
-      return todos.filter((todo) => todo.id !== action.id);
-    case 'TOGGLE':
-      return todos.map((todo) =>
-        todo.id === action.id ? { ...todo, checked: !todo.checked } : todo,
-      );
-    default:
-      return todos;
-  }
-}
+import { db, firebaseAPI } from './firebase';
 
 const App = () => {
-  const [todos, dispatch] = useReducer(todoReducer, undefined, createBulkTodos);
-  const nextId = useRef(2501);
-  const onInsert = useCallback((text) => {
-    const todo = {
-      id: nextId.current,
-      text,
-      checked: false,
+  const [todos, setTodos] = useState([]);
+  useEffect(() => {
+    const fetchData = async () => {
+      const array = await firebaseAPI();
+      setTodos(array);
     };
-    dispatch({ type: 'INSERT', todo });
-    //setTodos((todos) => todos.concat(todo));
-    nextId.current += 1;
+    fetchData();
   }, []);
+  const onInsert = useCallback(
+    (text) => {
+      const nextId = todos.length + 1;
+      const todo = {
+        id: nextId,
+        text,
+        checked: false,
+      };
+      db.collection('todos')
+        .doc(nextId + '')
+        .set(todo, { merge: true });
+      setTodos((todos) => todos.concat(todo));
+    },
+    [todos],
+  );
 
   const onRemove = useCallback((id) => {
-    dispatch({ type: 'REMOVE', id });
-    // setTodos((todos) => todos.filter((el) => el.id !== id));
+    setTodos((todos) => todos.filter((el) => el.id !== id));
+    db.collection('todos')
+      .doc(id + '')
+      .delete();
   }, []);
 
   const onToggle = useCallback((id) => {
-    dispatch({ type: 'TOGGLE', id });
-    // setTodos((todos) =>
-    //   todos.map((todo) =>
-    //     todo.id === id ? { ...todo, checked: !todo.checked } : todo,
-    //   ),
-    // );
+    setTodos((todos) =>
+      todos.map((todo) => {
+        if (todo.id === id) {
+          db.collection('todos')
+            .doc(id + '')
+            .update({ checked: !todo.checked });
+          return { ...todo, checked: !todo.checked };
+        } else {
+          return todo;
+        }
+      }),
+    );
   }, []);
   return (
     <div>

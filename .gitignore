@@ -19,6 +19,7 @@
 .env.production.local
 
 yarn.lock
+package-lock.json
 .prettierrc
 /.vscode
 npm-debug.log*
